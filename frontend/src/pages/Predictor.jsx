@@ -63,8 +63,9 @@ const Predictor = () => {
             const response = await axios.post('http://127.0.0.1:5000/api/predict_all', formData);
             setResult(response.data.results);
             setStep(4);
-        } catch {
-            alert("Backend Error! Check if Flask is running.");
+        } catch (err) {
+            const msg = err?.response?.data?.message || err.message || "Unknown error";
+            alert(`Backend Error: ${msg}\nPlease check if the Flask server is running.`);
         } finally {
             setLoading(false);
         }
@@ -75,12 +76,19 @@ const Predictor = () => {
             {/* Progress Header */}
             <div className="mb-10 text-center">
                 <h1 className="text-3xl font-extrabold text-gray-800">LifeBalance AI Analyzer</h1>
-                <p className="text-gray-500 mt-2">Step {step} of 3: {step === 1 ? 'Lifestyle' : step === 2 ? 'Health' : 'Finance'}</p>
-                <div className="mt-4 flex gap-2">
-                    {[1, 2, 3].map((s) => (
-                        <div key={s} className={`h-2 flex-1 rounded-full transition-all duration-500 ${step >= s ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
-                    ))}
-                </div>
+                {step < 4 && (
+                    <>
+                        <p className="text-gray-500 mt-2">Step {step} of 3: {step === 1 ? 'Lifestyle' : step === 2 ? 'Health' : 'Finance'}</p>
+                        <div className="mt-4 flex gap-2">
+                            {[1, 2, 3].map((s) => (
+                                <div key={s} className={`h-2 flex-1 rounded-full transition-all duration-500 ${step >= s ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                            ))}
+                        </div>
+                    </>
+                )}
+                {step === 4 && (
+                    <p className="text-gray-500 mt-2">Analysis Complete</p>
+                )}
             </div>
 
             {/* STEP 1: PERSONAL & LIFESTYLE */}
@@ -255,23 +263,82 @@ const Predictor = () => {
 
             {/* STEP 4: RESULTS DASHBOARD */}
             {step === 4 && result && (
-                <div className="space-y-8 animate-in zoom-in duration-500">
+                <div className="space-y-8">
                     <h2 className="text-2xl font-bold text-center text-gray-800">Your AI Analysis Report</h2>
+
+                    {/* Prediction Results */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="p-6 bg-gradient-to-br from-red-50 to-orange-50 rounded-3xl border border-red-100 text-center">
-                            <p className="text-red-600 font-bold uppercase text-xs tracking-widest">Dropout Risk</p>
+                            <p className="text-red-600 font-bold uppercase text-xs tracking-widest">Academic Dropout Risk</p>
                             <p className="text-4xl font-black text-red-700 mt-2">{result.dropout_risk}</p>
+                            <p className="text-xs text-red-400 mt-2">Based on lifestyle & study habits</p>
                         </div>
                         <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl border border-green-100 text-center">
-                            <p className="text-green-600 font-bold uppercase text-xs tracking-widest">Sleep Health</p>
+                            <p className="text-green-600 font-bold uppercase text-xs tracking-widest">Sleep Health Status</p>
                             <p className="text-2xl font-black text-green-700 mt-2">{result.health_condition}</p>
+                            <p className="text-xs text-green-400 mt-2">Based on sleep & activity data</p>
                         </div>
                         <div className="p-6 bg-gradient-to-br from-purple-50 to-fuchsia-50 rounded-3xl border border-purple-100 text-center">
-                            <p className="text-purple-600 font-bold uppercase text-xs tracking-widest">Financial</p>
+                            <p className="text-purple-600 font-bold uppercase text-xs tracking-widest">Financial Stability</p>
                             <p className="text-xl font-black text-purple-700 mt-2">{result.financial_status}</p>
+                            <p className="text-xs text-purple-400 mt-2">Based on income & financial data</p>
                         </div>
                     </div>
-                    <button onClick={() => setStep(1)} className="w-full py-4 text-indigo-600 font-bold hover:bg-indigo-50 rounded-2xl transition-all">Analyze New Data</button>
+
+                    {/* Input Summary */}
+                    <div className="bg-gray-50 rounded-3xl border border-gray-200 p-6">
+                        <h3 className="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Input Summary</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                            {/* Lifestyle */}
+                            <div>
+                                <p className="font-semibold text-indigo-600 mb-2">Lifestyle</p>
+                                <ul className="space-y-1 text-gray-600">
+                                    <li>Age: <span className="font-medium text-gray-800">{formData.age}</span></li>
+                                    <li>Gender: <span className="font-medium text-gray-800">{formData.gender === 1 ? 'Male' : 'Female'}</span></li>
+                                    <li>Social Media: <span className="font-medium text-gray-800">{formData.social_media_hours} hrs/day</span></li>
+                                    <li>Netflix: <span className="font-medium text-gray-800">{formData.netflix_hours} hrs/day</span></li>
+                                    <li>Exercise: <span className="font-medium text-gray-800">{formData.exercise_frequency} days/week</span></li>
+                                    <li>Sleep (Lifestyle): <span className="font-medium text-gray-800">{formData.sleep_hours} hrs</span></li>
+                                    <li>Screen Time: <span className="font-medium text-gray-800">{formData.screen_time} hrs/day</span></li>
+                                    <li>Mental Health: <span className="font-medium text-gray-800">{formData.mental_health_rating}/10</span></li>
+                                    <li>Stress Level: <span className="font-medium text-gray-800">{formData.stress_level}/10</span></li>
+                                </ul>
+                            </div>
+                            {/* Health */}
+                            <div>
+                                <p className="font-semibold text-green-600 mb-2">Health</p>
+                                <ul className="space-y-1 text-gray-600">
+                                    <li>Occupation: <span className="font-medium text-gray-800">{['Software Engineer','Doctor/Nurse','Student','Teacher'][formData.occupation] || formData.occupation}</span></li>
+                                    <li>BMI: <span className="font-medium text-gray-800">{['Normal','Overweight','Obese'][formData.bmi_category] || formData.bmi_category}</span></li>
+                                    <li>Sleep Duration: <span className="font-medium text-gray-800">{formData.sleep_duration} hrs</span></li>
+                                    <li>Sleep Quality: <span className="font-medium text-gray-800">{formData.quality_of_sleep}/10</span></li>
+                                    <li>Physical Activity: <span className="font-medium text-gray-800">{formData.physical_activity_level} min/day</span></li>
+                                    <li>Health Stress: <span className="font-medium text-gray-800">{formData.stress_level_health}/10</span></li>
+                                    <li>Heart Rate: <span className="font-medium text-gray-800">{formData.heart_rate} BPM</span></li>
+                                    <li>Daily Steps: <span className="font-medium text-gray-800">{formData.daily_steps}</span></li>
+                                    <li>Blood Pressure: <span className="font-medium text-gray-800">{formData.systolic_bp}/{formData.diastolic_bp}</span></li>
+                                </ul>
+                            </div>
+                            {/* Finance */}
+                            <div>
+                                <p className="font-semibold text-purple-600 mb-2">Finance</p>
+                                <ul className="space-y-1 text-gray-600">
+                                    <li>Annual Income: <span className="font-medium text-gray-800">LKR {formData.annual_income.toLocaleString()}</span></li>
+                                    <li>Credit Score: <span className="font-medium text-gray-800">{formData.credit_score}</span></li>
+                                    <li>Years Employed: <span className="font-medium text-gray-800">{formData.years_employed}</span></li>
+                                    <li>Savings: <span className="font-medium text-gray-800">LKR {formData.savings_assets.toLocaleString()}</span></li>
+                                    <li>Current Debt: <span className="font-medium text-gray-800">LKR {formData.current_debt.toLocaleString()}</span></li>
+                                    <li>Equity Market: <span className="font-medium text-gray-800">LKR {formData.Equity_Market.toLocaleString()}</span></li>
+                                    <li>Fixed Deposits: <span className="font-medium text-gray-800">LKR {formData.Fixed_Deposits.toLocaleString()}</span></li>
+                                    <li>Occupation Status: <span className="font-medium text-gray-800">{formData.occupation_status}</span></li>
+                                    <li>Investment Avenues: <span className="font-medium text-gray-800">{formData.investment_avenues}</span></li>
+                                    <li>Stock Market: <span className="font-medium text-gray-800">{formData.stock_market}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onClick={() => { setResult(null); setStep(1); }} className="w-full py-4 text-indigo-600 font-bold hover:bg-indigo-50 rounded-2xl transition-all border border-indigo-200">Start New Analysis</button>
                 </div>
             )}
         </div>
