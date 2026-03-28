@@ -1,64 +1,93 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
+import joblib
 import pandas as pd
 import numpy as np
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend integration
+CORS(app) 
 
-# --- 1. LOAD TRAINED MODELS ---
+# --- 1. LOAD ALL MODELS & ENCODERS ---
+try:
+    # Health Model (Sleep Disorder)
+    sleep_model = joblib.load('models/sleep_disorder_model.pkl')
+    health_encoder = joblib.load('models/encoders.pkl')
 
-# Load the Dropout Risk Prediction model
-dropout_model = pickle.load(open('models/dropout_model.pkl', 'rb'))
+    # Personal Model (Dropout Risk)
+    dropout_model = pickle.load(open('models/dropout_model.pkl', 'rb'))
+    gender_le = pickle.load(open('models/label_encoder.pkl', 'rb'))
 
-# Load the Health (Sleep Disorder) model and its Label Encoders
-sleep_model = pickle.load(open('models/sleep_disorder_model.pkl', 'rb'))
-health_le = pickle.load(open('models/encoders.pkl', 'rb'))
-
-# Load the Financial Stability model and its feature columns
-financial_model = pickle.load(open('models/financial_model.pkl', 'rb'))
-fin_cols = pickle.load(open('models/financial_columns.pkl', 'rb'))
+    # Financial Model (Stability Score)
+    financial_model = pickle.load(open('models/finance_model.pkl', 'rb'))
+    fin_columns = pickle.load(open('models/finance_columns.pkl', 'rb'))
+    
+    print("All ML models and encoders loaded successfully!")
+except Exception as e:
+    print(f"Loading Error: {e}")
 
 @app.route('/api/predict_all', methods=['POST'])
 def predict_all():
     try:
-        # Get JSON data sent from the React Frontend
         data = request.json  
         
-        # --- Dropout Risk Prediction Logic ---
-        # Features: social_media, netflix, exercise, sleep, screen, age, gender, mental, stress
+        # --- A. DROPOUT RISK PREDICTION (PERSONAL) ---
         dropout_features = [
-            data['social_media'], data['netflix'], data['exercise'],
-            data['sleep'], data['screen'], data['age'],
-            data['gender'], data['mental_health'], data['stress']
+            float(data['social_media_hours']),
+            float(data['netflix_hours']),
+            float(data['exercise_frequency']),
+            float(data['sleep_hours']),
+            float(data['screen_time']),
+            int(data['age']),
+            int(data['gender']), # 0=Female, 1=Male
+            int(data['mental_health_rating']),
+            int(data['stress_level'])
         ]
-        
-        # Create a DataFrame for the dropout model using correct column names
-        dropout_input = pd.DataFrame([dropout_features], columns=[
+        dropout_input_df = pd.DataFrame([dropout_features], columns=[
             'social_media_hours', 'netflix_hours', 'exercise_frequency', 
             'sleep_hours', 'screen_time', 'age', 'gender', 
             'mental_health_rating', 'stress_level'
         ])
-        
-        # Calculate the probability of dropout (Class 1)
-        dropout_prob = dropout_model.predict_proba(dropout_input)[0][1] * 100
+        dropout_prob = dropout_model.predict_proba(dropout_input_df)[0][1] * 100
 
-        # --- Health (Sleep Disorder) Prediction Logic ---
-        # Map input features to health model (Adjust these keys based on your dataset)
-        health_input = [data['age'], data['sleep_duration'], data['physical_activity']]
+        # --- B. HEALTH PREDICTION (SLEEP DISORDER - 12 FEATURES) ---
+        # Note: Category inputs (Occupation, BMI, BP) should be numbers from Frontend
+        health_features = [
+            int(data['gender']),
+            int(data['age']),
+            int(data['occupation']),
+            float(data['sleep_duration']),
+            int(data['quality_of_sleep']),
+            int(data['physical_activity_level']),
+            int(data['stress_level_health']), # stress_level (Health model)
+            int(data['bmi_category']),
+            int(data['heart_rate']),
+            int(data['daily_steps']),
+            int(data['systolic_bp']),
+            int(data['diastolic_bp'])
+        ]
         
-        # Predict class and inverse transform label from encoder
-        sleep_pred_idx = sleep_disorder_model.predict([health_input])[0]
-        sleep_status = health_le.inverse_transform([sleep_pred_idx])[0]
+        # Predict class
+        sleep_pred_idx = sleep_model.predict([health_features])[0]
+        sleep_status = health_encoder.inverse_transform([sleep_pred_idx])[0]
 
-        # --- Financial Stability Prediction Logic ---
-        # Features: income, expenses, savings (Adjust based on your financial model features)
-        fin_input = [data['income'], data['expenses'], data['savings']]
-        fin_pred = financial_model.predict([fin_input])[0]
+        # --- C. FINANCIAL STABILITY PREDICTION ---
+        fin_features = [
+            float(data['years_employed']),
+            int(data['annual_income']),
+            int(data['credit_score']),
+            int(data['savings_assets']),
+            int(data['current_debt']),
+            float(data['Equity_Market']),
+            float(data['Fixed_Deposits']),
+            1 if data['occupation_status'] == 'Self-Employed' else 0,
+            1 if data['investment_avenues'] == 'Yes' else 0,
+            1 if data['stock_market'] == 'Yes' else 0
+        ]
+        fin_input_df = pd.DataFrame([fin_features], columns=fin_columns)
+        fin_pred = financial_model.predict(fin_input_df)[0]
         
-        # Map numeric prediction back to human-readable status
-        fin_status = "Stable" if fin_pred == 1 else "Risky"
+        fin_status = f"Stability Score: {fin_pred:.2f}"
 
         # --- CONSOLIDATED JSON RESPONSE ---
         return jsonify({
@@ -71,9 +100,8 @@ def predict_all():
         })
 
     except Exception as e:
-        # Error handling for invalid data or processing issues
+        print(f"API Error: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 if __name__ == '__main__':
-    # Run server on port 5000 in debug mode
     app.run(debug=True, port=5000)
