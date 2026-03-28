@@ -5,6 +5,8 @@ const Predictor = () => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
+    const [apiError, setApiError] = useState('');
+    const [submittedData, setSubmittedData] = useState(null);
 
     const [formData, setFormData] = useState({
         // --- Step 1: Personal & Dropout Risk (9 Features) ---
@@ -45,26 +47,34 @@ const Predictor = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        // Numeric අගයන් එවන ඒවා number එකක් විදිහටම set කරමු
-        const numericFields = ['age', 'gender', 'social_media_hours', 'netflix_hours', 'exercise_frequency', 'sleep_hours', 'screen_time', 'mental_health_rating', 'stress_level', 'occupation', 'sleep_duration', 'quality_of_sleep', 'physical_activity_level', 'stress_level_health', 'bmi_category', 'heart_rate', 'daily_steps', 'systolic_bp', 'diastolic_bp', 'years_employed', 'annual_income', 'credit_score', 'savings_assets', 'current_debt', 'Equity_Market', 'Fixed_Deposits'];
+
+        // ලිස්ට් එකේ නැති String values (dropdowns) කෙලින්ම set කරනවා
+        const stringFields = ['occupation_status', 'investment_avenues', 'stock_market'];
 
         setFormData({
             ...formData,
-            [name]: numericFields.includes(name) ? parseFloat(value) : value
+            [name]: stringFields.includes(name) ? value : parseFloat(value) || 0
         });
     };
-
     const nextStep = () => setStep(step + 1);
     const prevStep = () => setStep(step - 1);
 
     const handleSubmit = async () => {
         setLoading(true);
+        setApiError('');
         try {
             const response = await axios.post('http://127.0.0.1:5000/api/predict_all', formData);
+
+            if (response.data?.status !== 'success' || !response.data?.results) {
+                throw new Error(response.data?.message || 'Invalid response from backend');
+            }
+
+            setSubmittedData({ ...formData });
             setResult(response.data.results);
             setStep(4);
-        } catch {
-            alert("Backend Error! Check if Flask is running.");
+        } catch (error) {
+            const message = error?.response?.data?.message || error?.message || 'Backend Error! Check if Flask is running.';
+            setApiError(message);
         } finally {
             setLoading(false);
         }
@@ -250,28 +260,71 @@ const Predictor = () => {
                             {loading ? 'Processing...' : 'Generate Full Report'}
                         </button>
                     </div>
+                    {apiError && (
+                        <div className="col-span-2 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-sm">
+                            Prediction failed: {apiError}
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* STEP 4: RESULTS DASHBOARD */}
+
+            {/* STEP 4: RESULTS DASHBOARD - CLEAN VERSION */}
             {step === 4 && result && (
                 <div className="space-y-8 animate-in zoom-in duration-500">
-                    <h2 className="text-2xl font-bold text-center text-gray-800">Your AI Analysis Report</h2>
+                    <h2 className="text-3xl font-black text-center text-gray-800 mb-8">AI Analysis Report</h2>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="p-6 bg-gradient-to-br from-red-50 to-orange-50 rounded-3xl border border-red-100 text-center">
-                            <p className="text-red-600 font-bold uppercase text-xs tracking-widest">Dropout Risk</p>
-                            <p className="text-4xl font-black text-red-700 mt-2">{result.dropout_risk}</p>
+
+                        {/* 1. Personal & Academic Card */}
+                        <div className="p-8 bg-white rounded-[2rem] border-2 border-orange-100 shadow-xl text-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-3 bg-orange-100 rounded-bl-2xl text-orange-600 font-bold text-xs">PERSONAL</div>
+                            <p className="text-gray-500 font-bold uppercase text-xs tracking-widest mb-4">Dropout Risk</p>
+                            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-orange-50 mb-4">
+                                <p className="text-3xl font-black text-orange-600">{result.dropout_risk}</p>
+                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                {parseFloat(result.dropout_risk) > 50 ? "High risk detected. Consider adjusting your workload." : "Your academic path looks stable."}
+                            </p>
                         </div>
-                        <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl border border-green-100 text-center">
-                            <p className="text-green-600 font-bold uppercase text-xs tracking-widest">Sleep Health</p>
-                            <p className="text-2xl font-black text-green-700 mt-2">{result.health_condition}</p>
+
+                        {/* 2. Health & Sleep Card */}
+                        <div className="p-8 bg-white rounded-[2rem] border-2 border-emerald-100 shadow-xl text-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-3 bg-emerald-100 rounded-bl-2xl text-emerald-600 font-bold text-xs">HEALTH</div>
+                            <p className="text-gray-500 font-bold uppercase text-xs tracking-widest mb-4">Sleep Condition</p>
+                            <div className="py-4 px-6 bg-emerald-50 rounded-2xl mb-4">
+                                <p className="text-xl font-black text-emerald-700">{result.health_condition}</p>
+                            </div>
+                            <p className="text-sm text-gray-600">Based on your activity and sleep patterns, your health status is identified as {result.health_condition}.</p>
                         </div>
-                        <div className="p-6 bg-gradient-to-br from-purple-50 to-fuchsia-50 rounded-3xl border border-purple-100 text-center">
-                            <p className="text-purple-600 font-bold uppercase text-xs tracking-widest">Financial</p>
-                            <p className="text-xl font-black text-purple-700 mt-2">{result.financial_status}</p>
-                        </div>
+
+                        {/* 3. Financial Stability Card */}
+                        {(() => {
+                            const score = parseFloat(result.financial_status.replace(/[^0-9.]/g, ''));
+                            const isGood = score > 15; // Score eka 15ta wedi nam "Good" kiyala gannawa
+                            return (
+                                <div className={`p-8 bg-white rounded-[2rem] border-2 ${isGood ? 'border-purple-100' : 'border-red-100'} shadow-xl text-center relative overflow-hidden`}>
+                                    <div className={`absolute top-0 right-0 p-3 ${isGood ? 'bg-purple-100 text-purple-600' : 'bg-red-100 text-red-600'} rounded-bl-2xl font-bold text-xs`}>FINANCE</div>
+                                    <p className="text-gray-500 font-bold uppercase text-xs tracking-widest mb-4">Stability Score</p>
+                                    <p className={`text-4xl font-black ${isGood ? 'text-purple-700' : 'text-red-600'} mt-2`}>{score.toFixed(2)}</p>
+                                    <div className={`mt-4 py-2 px-4 rounded-full text-xs font-bold inline-block ${isGood ? 'bg-purple-50 text-purple-700' : 'bg-red-50 text-red-700'}`}>
+                                        {isGood ? "STRONGLY STABLE" : "NEEDS ATTENTION"}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                     </div>
-                    <button onClick={() => setStep(1)} className="w-full py-4 text-indigo-600 font-bold hover:bg-indigo-50 rounded-2xl transition-all">Analyze New Data</button>
+
+                    <div className="flex justify-center mt-12">
+                        <button
+                            onClick={() => setStep(1)}
+                            className="group flex items-center gap-3 px-10 py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-black transition-all shadow-2xl"
+                        >
+                            <span>Run New Analysis</span>
+                            <span className="group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
