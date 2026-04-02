@@ -6,12 +6,47 @@ import {
     User, Thermometer, Zap, BarChart3, Info
 } from 'lucide-react';
 
+// Validation rules for each field
+const VALIDATION_RULES = {
+    avg_work_hours:          { min: 0, max: 24,    label: 'Work Hours / Day' },
+    avg_rest_hours:          { min: 0, max: 24,    label: 'Rest Hours / Day' },
+    avg_sleep_hours:         { min: 0, max: 24,    label: 'Sleep Hours / Day' },
+    avg_exercise_hours:      { min: 0, max: 24,    label: 'Exercise Hours / Day' },
+    occupation_type:         { min: 0, max: 10,    label: 'Occupation Type' },
+    age:                     { min: 1, max: 120,   label: 'Age' },
+    stress_level_health:     { min: 1, max: 10,    label: 'Stress Level' },
+    quality_of_sleep:        { min: 1, max: 10,    label: 'Sleep Quality' },
+    daily_steps:             { min: 0, max: 100000,label: 'Daily Steps' },
+    heart_rate:              { min: 30, max: 250,  label: 'Heart Rate' },
+    systolic_bp:             { min: 60, max: 250,  label: 'Systolic BP' },
+    diastolic_bp:            { min: 30, max: 150,  label: 'Diastolic BP' },
+    bmi_category:            { min: 0, max: 2,     label: 'BMI Category' },
+    physical_activity_level: { min: 0, max: 100,   label: 'Physical Activity' },
+    sleep_duration:          { min: 0, max: 24,    label: 'Sleep Duration' },
+    occupation:              { min: 0, max: 20,    label: 'Occupation ID' },
+    annual_income:           { min: 0, max: 1e9,   label: 'Annual Income' },
+    savings_assets:          { min: 0, max: 1e9,   label: 'Total Savings' },
+    credit_score:            { min: 300, max: 850, label: 'Credit Score' },
+    years_employed:          { min: 0, max: 60,    label: 'Years Employed' },
+    current_debt:            { min: 0, max: 1e9,   label: 'Current Debt' },
+    Equity_Market:           { min: 0, max: 100,   label: 'Equity Market %' },
+    Fixed_Deposits:          { min: 0, max: 1e9,   label: 'Fixed Deposits' },
+};
+
+// Fields belonging to each step
+const STEP_FIELDS = {
+    1: ['avg_work_hours', 'avg_rest_hours', 'avg_sleep_hours', 'avg_exercise_hours', 'occupation_type'],
+    2: ['age', 'stress_level_health', 'quality_of_sleep', 'daily_steps', 'heart_rate', 'systolic_bp', 'diastolic_bp', 'bmi_category', 'physical_activity_level', 'sleep_duration', 'occupation'],
+    3: ['annual_income', 'savings_assets', 'credit_score', 'years_employed', 'current_debt', 'Equity_Market', 'Fixed_Deposits'],
+};
+
 const Predictor = () => {
     // State management for navigation, loading status, and API results
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [apiError, setApiError] = useState('');
+    const [validationErrors, setValidationErrors] = useState({});
 
     // Comprehensive data structure for all 28 features (Lifestyle, Health, and Finance)
     const [formData, setFormData] = useState({
@@ -116,14 +151,52 @@ const Predictor = () => {
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         const stringFields = ['occupation_status', 'investment_avenues', 'stock_market'];
-        setFormData(prev => ({
-            ...prev,
-            [name]: stringFields.includes(name) ? value : (isNaN(parseFloat(value)) ? 0 : parseFloat(value))
-        }));
+        const parsed = stringFields.includes(name) ? value : (isNaN(parseFloat(value)) ? 0 : parseFloat(value));
+        setFormData(prev => ({ ...prev, [name]: parsed }));
+        // Clear validation error for this field on change
+        if (validationErrors[name]) {
+            setValidationErrors(prev => { const next = { ...prev }; delete next[name]; return next; });
+        }
+    };
+
+    // Validate fields for a given step; returns true if valid
+    const validateStep = (stepNum) => {
+        const fields = STEP_FIELDS[stepNum] || [];
+        const errors = {};
+        fields.forEach(field => {
+            const rule = VALIDATION_RULES[field];
+            if (!rule) return;
+            const val = formData[field];
+            if (val === null || val === undefined || isNaN(Number(val))) {
+                errors[field] = `${rule.label} is required.`;
+            } else if (Number(val) < rule.min || Number(val) > rule.max) {
+                errors[field] = `${rule.label} must be between ${rule.min} and ${rule.max}.`;
+            }
+        });
+
+        // Cross-field: total daily hours must not exceed 24
+        if (stepNum === 1) {
+            const totalHours = Number(formData.avg_work_hours) + Number(formData.avg_rest_hours)
+                + Number(formData.avg_sleep_hours) + Number(formData.avg_exercise_hours);
+            if (!errors.avg_work_hours && !errors.avg_rest_hours && !errors.avg_sleep_hours && !errors.avg_exercise_hours) {
+                if (totalHours > 24) {
+                    errors.avg_work_hours = `Total daily hours (work + rest + sleep + exercise = ${totalHours}) cannot exceed 24.`;
+                }
+            }
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    // Navigate to the next step only if current step is valid
+    const handleNext = (nextStep) => {
+        if (validateStep(step)) setStep(nextStep);
     };
 
     // Submit form data to the Flask Backend
     const handleSubmit = async () => {
+        if (!validateStep(3)) return;
         setLoading(true);
         setApiError('');
         try {
@@ -150,8 +223,11 @@ const Predictor = () => {
                 name={name}
                 value={formData[name]}
                 onChange={handleInputChange}
-                className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-indigo-500/50 transition-all text-sm hover:bg-white/[0.08]"
+                className={`w-full p-3 bg-white/5 border rounded-xl text-white outline-none transition-all text-sm hover:bg-white/[0.08] ${validationErrors[name] ? 'border-red-500/70 focus:border-red-500' : 'border-white/10 focus:border-indigo-500/50'}`}
             />
+            {validationErrors[name] && (
+                <span className="text-[10px] text-red-400 font-semibold ml-1">{validationErrors[name]}</span>
+            )}
         </div>
     );
 
@@ -202,7 +278,7 @@ const Predictor = () => {
                             </div>
                             <InputField label="Occupation Type (ID)" name="occupation_type" />
                         </div>
-                        <button onClick={() => setStep(2)} className="mt-12 w-full md:w-max px-12 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ml-auto">
+                        <button onClick={() => handleNext(2)} className="mt-12 w-full md:w-max px-12 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ml-auto">
                             Analyze Health <ChevronRight size={16} />
                         </button>
                     </div>
@@ -233,7 +309,7 @@ const Predictor = () => {
                         </div>
                         <div className="flex gap-4 mt-12">
                             <button onClick={() => setStep(1)} className="px-8 py-4 border border-white/10 text-gray-500 rounded-2xl font-bold uppercase text-xs flex items-center gap-2 hover:bg-white/5 transition-all"><ChevronLeft size={16} /> Back</button>
-                            <button onClick={() => setStep(3)} className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20">Analyze Economics <ChevronRight size={16} /></button>
+                            <button onClick={() => handleNext(3)} className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20">Analyze Economics <ChevronRight size={16} /></button>
                         </div>
                     </div>
                 )}
@@ -348,7 +424,7 @@ const Predictor = () => {
                         </div>
 
                         {/* Reset Component */}
-                        <button onClick={() => { setStep(1); setResult(null); }} className="mt-20 group flex items-center gap-4 text-gray-600 font-black mx-auto hover:text-white transition-all uppercase text-[10px] tracking-[0.4em]">
+                        <button onClick={() => { setStep(1); setResult(null); setValidationErrors({}); setApiError(''); }} className="mt-20 group flex items-center gap-4 text-gray-600 font-black mx-auto hover:text-white transition-all uppercase text-[10px] tracking-[0.4em]">
                             <RefreshCcw size={14} className="group-hover:rotate-180 transition-all duration-1000" /> Reset System & Re-Analyze
                         </button>
                     </div>
