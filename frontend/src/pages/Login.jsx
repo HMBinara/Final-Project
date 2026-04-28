@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity, Mail, Lock } from 'lucide-react';
 
@@ -6,6 +6,26 @@ const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
+
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const inputRefs = [emailRef, passwordRef];
+
+  React.useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (e, currentIndex) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const nextIndex = currentIndex + 1;
+      if (nextIndex < inputRefs.length) {
+        inputRefs[nextIndex].current?.focus();
+      } else {
+        handleSubmit(e);
+      }
+    }
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -27,9 +47,9 @@ const Login = () => {
     e.preventDefault();
     const newErrors = validate();
     if (Object.keys(newErrors).length === 0) {
-      localStorage.setItem('user', JSON.stringify({ 
-        name: formData.email.split('@')[0], 
-        email: formData.email 
+      localStorage.setItem('user', JSON.stringify({
+        name: formData.email.split('@')[0],
+        email: formData.email
       }));
       navigate('/dashboard');
     } else {
@@ -50,7 +70,7 @@ const Login = () => {
 
         <div className="bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-700/50 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-32 bg-blue-500 rounded-full blur-3xl opacity-5 -z-10 translate-x-1/2 -translate-y-1/2"></div>
-          
+
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
@@ -59,11 +79,13 @@ const Login = () => {
                   <Mail className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
+                  ref={emailRef}
                   type="email"
                   className={`block w-full pl-10 pr-3 py-3 border ${errors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-600/50 focus:ring-blue-500 focus:border-blue-500'} rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-2`}
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, 0)}
                 />
               </div>
               {errors.email && <p className="mt-2 text-sm text-red-500">{errors.email}</p>}
@@ -76,11 +98,13 @@ const Login = () => {
                   <Lock className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
+                  ref={passwordRef}
                   type="password"
                   className={`block w-full pl-10 pr-3 py-3 border ${errors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-600/50 focus:ring-blue-500 focus:border-blue-500'} rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-2`}
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, 1)}
                 />
               </div>
               {errors.password && <p className="mt-2 text-sm text-red-500">{errors.password}</p>}

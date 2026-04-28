@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity, Mail, Lock, User } from 'lucide-react';
 
@@ -7,10 +7,32 @@ const Signup = () => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
 
+  const nameRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
+  const inputRefs = [nameRef, emailRef, passwordRef, confirmPasswordRef];
+
+  React.useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (e, currentIndex) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const nextIndex = currentIndex + 1;
+      if (nextIndex < inputRefs.length) {
+        inputRefs[nextIndex].current?.focus();
+      } else {
+        handleSubmit(e);
+      }
+    }
+  };
+
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Full name is required';
-    
+
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -34,9 +56,9 @@ const Signup = () => {
     e.preventDefault();
     const newErrors = validate();
     if (Object.keys(newErrors).length === 0) {
-      localStorage.setItem('user', JSON.stringify({ 
-        name: formData.name, 
-        email: formData.email 
+      localStorage.setItem('user', JSON.stringify({
+        name: formData.name,
+        email: formData.email
       }));
       navigate('/dashboard');
     } else {
@@ -57,7 +79,7 @@ const Signup = () => {
 
         <div className="bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-700/50 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-32 bg-indigo-500 rounded-full blur-3xl opacity-5 -z-10 translate-x-1/2 -translate-y-1/2"></div>
-          
+
           <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Full Name</label>
@@ -66,11 +88,13 @@ const Signup = () => {
                   <User className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
+                  ref={nameRef}
                   type="text"
                   className={`block w-full pl-10 pr-3 py-2.5 border ${errors.name ? 'border-red-500 focus:ring-red-500' : 'border-slate-600/50 focus:ring-blue-500 focus:border-blue-500'} rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-2`}
                   placeholder="John Doe"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, 0)}
                 />
               </div>
               {errors.name && <p className="mt-1.5 text-sm text-red-500">{errors.name}</p>}
@@ -83,11 +107,13 @@ const Signup = () => {
                   <Mail className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
+                  ref={emailRef}
                   type="email"
                   className={`block w-full pl-10 pr-3 py-2.5 border ${errors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-600/50 focus:ring-blue-500 focus:border-blue-500'} rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-2`}
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, 1)}
                 />
               </div>
               {errors.email && <p className="mt-1.5 text-sm text-red-500">{errors.email}</p>}
@@ -100,11 +126,13 @@ const Signup = () => {
                   <Lock className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
+                  ref={passwordRef}
                   type="password"
                   className={`block w-full pl-10 pr-3 py-2.5 border ${errors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-600/50 focus:ring-blue-500 focus:border-blue-500'} rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-2`}
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, 2)}
                 />
               </div>
               {errors.password && <p className="mt-1.5 text-sm text-red-500">{errors.password}</p>}
@@ -117,11 +145,13 @@ const Signup = () => {
                   <Lock className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
+                  ref={confirmPasswordRef}
                   type="password"
                   className={`block w-full pl-10 pr-3 py-2.5 border ${errors.confirmPassword ? 'border-red-500 focus:ring-red-500' : 'border-slate-600/50 focus:ring-blue-500 focus:border-blue-500'} rounded-xl bg-slate-900 text-white placeholder-slate-500 focus:outline-none focus:ring-2`}
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, 3)}
                 />
               </div>
               {errors.confirmPassword && <p className="mt-1.5 text-sm text-red-500">{errors.confirmPassword}</p>}
