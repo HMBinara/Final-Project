@@ -24,7 +24,7 @@ const Home = () => {
         {/* Hero Section */}
         <div className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-600/20 rounded-full blur-[120px] -z-10"></div>
-          
+
           <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-8">
@@ -34,31 +34,31 @@ const Home = () => {
                 </span>
                 Intelligence Report v2.0 Live
               </div>
-              
+
               <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-tight mb-6">
-                Optimize Your <br/>
+                Optimize Your <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Life Balance</span>
               </h1>
-              
+
               <p className="text-lg text-slate-400 mb-10 leading-relaxed max-w-xl">
                 Our advanced monitoring system analyzes your routine to generate a personalized Intelligence Report. Reclaim your focus, health, and productivity.
               </p>
-              
+
               <div className="flex flex-wrap items-center gap-4 border-l-2 border-slate-800 pl-6">
                 <Link to="/signup" className="inline-flex items-center gap-2 bg-white text-slate-900 hover:bg-slate-100 px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 duration-200">
                   Start Monitoring <ArrowRight className="w-5 h-5" />
                 </Link>
                 <div className="text-sm text-slate-500">
-                  Join 10,000+ users transforming<br/>their daily routines today.
+                  Join 10,000+ users transforming<br />their daily routines today.
                 </div>
               </div>
             </div>
 
             <div className="relative lg:ml-auto w-full max-w-lg aspect-square">
               <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 to-indigo-500/0 rounded-3xl transform rotate-6 border border-slate-700/50 backdrop-blur-sm -z-10 transition-transform hover:rotate-3 duration-500"></div>
-              <img 
-                src="/hero.png" 
-                alt="Life Balance App Preview" 
+              <img
+                src="/hero.png"
+                alt="Life Balance App Preview"
                 className="w-full h-full object-cover rounded-3xl shadow-2xl shadow-blue-900/50 border border-slate-700/50"
               />
             </div>
@@ -72,7 +72,7 @@ const Home = () => {
               <h2 className="text-3xl font-bold mb-4">Professional Intelligence Analysis</h2>
               <p className="text-slate-400">Everything you need to monitor, adapt, and succeed in balancing your life.</p>
             </div>
-            
+
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 { icon: Activity, title: 'Real-time Tracking', desc: 'Monitor your vital statistics and productivity cycles automatically.' },

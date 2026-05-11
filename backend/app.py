@@ -1,10 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from pathlib import Path
 import joblib
 import pickle
 import pandas as pd
 import numpy as np
+from dotenv import load_dotenv
+import os
+from pdf_generator import ReportGenerator
+
+# Load environment variables from .env
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -129,5 +135,35 @@ def predict_all():
         print(f"⚠️ API Error: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
+@app.route('/api/generate_pdf_report', methods=['POST'])
+def generate_pdf_report():
+    """Generate a professional PDF report with AI-powered header image"""
+    try:
+        data = request.json
+        longevity = data.get('longevity_prediction', '0 Years')
+        health_condition = data.get('health_condition', 'Unknown')
+        financial_status = data.get('financial_status', '0.00')
+        
+        # Initialize report generator with Gemini API key
+        gemini_key = os.getenv('GEMINI_API_KEY')
+        if not gemini_key:
+            print("⚠️ Warning: GEMINI_API_KEY not found in .env file. Using fallback header generation.")
+        
+        report_gen = ReportGenerator(gemini_api_key=gemini_key)
+        pdf_buffer = report_gen.generate_pdf(longevity, health_condition, financial_status)
+        
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'LifeBalance_Report_{pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        )
+    
+    except Exception as e:
+        print(f"❌ PDF Generation Error: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'PDF generation failed: {str(e)}'}), 500
+
 if __name__ == '__main__':
+    print("\n🚀 LifeBalance AI Backend Starting...")
+    print(f"✅ Gemini API Key: {'✓ Configured' if os.getenv('GEMINI_API_KEY') else '✗ Not set (optional)'}")  
     app.run(debug=True, port=5000)

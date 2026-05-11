@@ -1,8 +1,8 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogOut, User, Activity } from 'lucide-react';
+import { LayoutDashboard, LogOut, User, Activity, BarChart3 } from 'lucide-react';
 
-const Sidebar = () => {
+const Sidebar = ({ openChart }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -26,13 +26,17 @@ const Sidebar = () => {
         </div>
 
         <nav className="flex flex-col gap-2 px-4 mt-6">
-          <NavLink 
-            to="/dashboard" 
+          <NavLink
+            to="/dashboard"
             className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive ? 'bg-blue-600 shadow-lg shadow-blue-500/30' : 'hover:bg-slate-700/50 text-slate-300 hover:text-white'}`}
           >
             <LayoutDashboard className="w-5 h-5" />
             <span className="font-medium">Dashboard</span>
           </NavLink>
+          <button onClick={() => openChart && openChart()} className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-slate-700/50 text-slate-300 hover:text-white">
+            <BarChart3 className="w-5 h-5" />
+            <span className="font-medium">View Chart</span>
+          </button>
         </nav>
       </div>
 
@@ -46,8 +50,8 @@ const Sidebar = () => {
             <p className="text-xs text-slate-400 truncate">{user.email}</p>
           </div>
         </div>
-        
-        <button 
+
+        <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors"
         >
