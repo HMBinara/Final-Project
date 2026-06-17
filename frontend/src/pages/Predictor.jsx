@@ -265,27 +265,6 @@ const Predictor = () => {
         return "";
     };
 
-    const getRawAdvice = (type, value) => {
-        if (type === 'longevity') {
-            const age = parseInt(value);
-            if (age >= 80) return "Excellent lifestyle! Maintain these habits for a long, healthy life.";
-            if (age >= 65) return "Good outlook. Increasing physical activity could further improve your longevity.";
-            return "Warning! Significant lifestyle changes needed. Focus on diet and consistent sleep patterns.";
-        }
-        if (type === 'health') {
-            if (value === 'Normal') return "You are in a healthy clinical state. Keep up the preventive care.";
-            if (value === 'Insomnia' || value === 'Sleep Apnea') return "Poor sleep detected. Try to reduce stress and aim for a consistent sleep schedule.";
-            return "Potential health risk detected. We recommend consulting a healthcare professional.";
-        }
-        if (type === 'finance') {
-            const score = parseFloat(value);
-            if (score > 15) return "Strong financial stability! You are in a great position for long-term investments.";
-            if (score > 10) return "Stable, but there's room for growth. Consider increasing your monthly savings.";
-            return "Financial risk detected. Focus on debt reduction and building an emergency fund.";
-        }
-        return "";
-    };
-
     // Generic input handler with support for both numeric and string fields
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -336,31 +315,36 @@ const Predictor = () => {
             if (response.data?.status === 'success') {
                 const results = response.data.results;
                 setResult(results);
-                // append to localStorage predictionHistory as a new entry (always add a new point)
                 try {
-                    const saved = localStorage.getItem('predictionHistory');
-                    const history = saved ? JSON.parse(saved) : [];
+                    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    const userId = storedUser.email || 'demo-user';
 
-                    const healthScore = results.health_condition === 'Normal' ? 90 :
-                        (results.health_condition === 'Insomnia' || results.health_condition === 'Sleep Apnea' ? 60 : 30);
-                    const financialValue = parseFloat(results.financial_status) || 0;
-
-                    const newEntry = {
-                        date: new Date().toLocaleString(),
-                        longevity: parseInt(results.longevity_prediction) || 0,
-                        health: healthScore,
-                        financial: financialValue,
-                        timestamp: new Date().getTime()
+                    const longevityYears = Number.parseFloat(results.longevity_prediction) || 0;
+                    const healthScore = results.health_condition === 'Normal'
+                        ? 90
+                        : (results.health_condition === 'Insomnia' || results.health_condition === 'Sleep Apnea' ? 60 : 30);
+                    const financialScore = Number.parseFloat(results.financial_status) || 0;
+                    const normalizedScores = {
+                        longevityYears: Number(longevityYears),
+                        healthScore: Number(healthScore),
+                        resilienceScore: Number(financialScore),
                     };
 
-                    history.push(newEntry);
-                    history.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                    localStorage.setItem('predictionHistory', JSON.stringify(history));
-                    // notify other components in same window
+                    await axios.post('http://127.0.0.1:5000/api/predict', {
+                        ...formData,
+                        userId,
+                        user: storedUser,
+                        scores: normalizedScores,
+                        longevityYears: normalizedScores.longevityYears,
+                        healthScore: normalizedScores.healthScore,
+                        financialScore: normalizedScores.resilienceScore,
+                        bioLongevity: normalizedScores.longevityYears,
+                        resilienceScore: normalizedScores.resilienceScore
+                    });
+
                     window.dispatchEvent(new CustomEvent('predictionHistoryUpdated'));
                 } catch (err) {
-                    // ignore storage errors
-                    console.warn('Failed saving prediction history', err);
+                    console.warn('Failed saving prediction history to Firestore', err);
                 }
                 setStep(4); // Move to the Final Report step
             }
