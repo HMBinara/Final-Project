@@ -19,7 +19,6 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Predictor />} />
         </Route>
-        
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

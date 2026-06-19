@@ -3,8 +3,48 @@ import axios from 'axios';
 import {
     Activity, Heart, Wallet, ChevronRight, ChevronLeft,
     RefreshCcw, Loader2, Landmark, CreditCard, TrendingUp,
-    User, Thermometer, Zap, BarChart3, Info, Download, X
+    User, Thermometer, Zap, BarChart3, Info, Download, X, LineChart as LineChartIcon
 } from 'lucide-react';
+// Chart is now mounted globally in Layout; Predictor will save history to localStorage
+
+// Occupation Type Mapping (LabelEncoder)
+const occupations = [
+    { id: 0, label: 'Artist' },
+    { id: 1, label: 'Consultant' },
+    { id: 2, label: 'Driver' },
+    { id: 3, label: 'Engineer' },
+    { id: 4, label: 'Entrepreneur' },
+    { id: 5, label: 'Freelancer' },
+    { id: 6, label: 'Healthcare Worker' },
+    { id: 7, label: 'Manager' },
+    { id: 8, label: 'Manual Laborer' },
+    { id: 9, label: 'Office Worker' },
+    { id: 10, label: 'Retail Worker' },
+    { id: 11, label: 'Scientist' },
+    { id: 12, label: 'Teacher' },
+    { id: 13, label: 'Technician' }
+];
+
+const healthOccupations = [
+    { id: 0, label: 'Accountant' },
+    { id: 1, label: 'Doctor' },
+    { id: 2, label: 'Engineer' },
+    { id: 3, label: 'Lawyer' },
+    { id: 4, label: 'Manager' },
+    { id: 5, label: 'Nurse' },
+    { id: 6, label: 'Salesperson' },
+    { id: 7, label: 'Scientist' },
+    { id: 8, label: 'Software Engineer' },
+    { id: 9, label: 'Teacher' },
+    { id: 10, label: 'Other' }
+];
+
+const bmiCategories = [
+    { id: 0, label: 'Normal' },
+    { id: 1, label: 'Overweight' },
+    { id: 2, label: 'Obese' },
+    { id: 3, label: 'Underweight' }
+];
 
 const InputField = ({
     label,
@@ -12,6 +52,9 @@ const InputField = ({
     value,
     type = "text",
     inputMode = "numeric",
+    min,
+    max,
+    step,
     icon: Icon,
     inputRef,
     onKeyDown,
@@ -34,6 +77,9 @@ const InputField = ({
                     ref={inputRef}
                     type={type}
                     inputMode={inputMode}
+                    min={min}
+                    max={max}
+                    step={step}
                     name={name}
                     value={value}
                     onChange={onChange}
@@ -62,6 +108,7 @@ const Predictor = () => {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [apiError, setApiError] = useState('');
+
 
     // Step 1 Refs
     const workHoursRef = useRef(null);
@@ -131,7 +178,7 @@ const Predictor = () => {
 
         // Clinical Health Features
         age: 25,
-        occupation: 0,
+        occupation: '',
         sleep_duration: 7.0,
         quality_of_sleep: 5,
         physical_activity_level: 30,
@@ -218,30 +265,33 @@ const Predictor = () => {
         return "";
     };
 
-    const getRawAdvice = (type, value) => {
-        if (type === 'longevity') {
-            const age = parseInt(value);
-            if (age >= 80) return "Excellent lifestyle! Maintain these habits for a long, healthy life.";
-            if (age >= 65) return "Good outlook. Increasing physical activity could further improve your longevity.";
-            return "Warning! Significant lifestyle changes needed. Focus on diet and consistent sleep patterns.";
-        }
-        if (type === 'health') {
-            if (value === 'Normal') return "You are in a healthy clinical state. Keep up the preventive care.";
-            if (value === 'Insomnia' || value === 'Sleep Apnea') return "Poor sleep detected. Try to reduce stress and aim for a consistent sleep schedule.";
-            return "Potential health risk detected. We recommend consulting a healthcare professional.";
-        }
-        if (type === 'finance') {
-            const score = parseFloat(value);
-            if (score > 15) return "Strong financial stability! You are in a great position for long-term investments.";
-            if (score > 10) return "Stable, but there's room for growth. Consider increasing your monthly savings.";
-            return "Financial risk detected. Focus on debt reduction and building an emergency fund.";
-        }
-        return "";
-    };
-
     // Generic input handler with support for both numeric and string fields
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+
+        if (name === 'stress_level_health' || name === 'quality_of_sleep') {
+            if (value === '') {
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: ''
+                }));
+                return;
+            }
+
+            const numericValue = Number(value);
+            if (Number.isNaN(numericValue)) {
+                return;
+            }
+
+            const parsedValue = Math.max(1, Math.min(10, numericValue));
+
+            setFormData(prev => ({
+                ...prev,
+                [name]: parsedValue
+            }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [name]: value
@@ -263,7 +313,39 @@ const Predictor = () => {
         try {
             const response = await axios.post('http://127.0.0.1:5000/api/predict_all', formData);
             if (response.data?.status === 'success') {
-                setResult(response.data.results);
+                const results = response.data.results;
+                setResult(results);
+                try {
+                    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    const userId = storedUser.email || 'demo-user';
+
+                    const longevityYears = Number.parseFloat(results.longevity_prediction) || 0;
+                    const healthScore = results.health_condition === 'Normal'
+                        ? 90
+                        : (results.health_condition === 'Insomnia' || results.health_condition === 'Sleep Apnea' ? 60 : 30);
+                    const financialScore = Number.parseFloat(results.financial_status) || 0;
+                    const normalizedScores = {
+                        longevityYears: Number(longevityYears),
+                        healthScore: Number(healthScore),
+                        resilienceScore: Number(financialScore),
+                    };
+
+                    await axios.post('http://127.0.0.1:5000/api/predict', {
+                        ...formData,
+                        userId,
+                        user: storedUser,
+                        scores: normalizedScores,
+                        longevityYears: normalizedScores.longevityYears,
+                        healthScore: normalizedScores.healthScore,
+                        financialScore: normalizedScores.resilienceScore,
+                        bioLongevity: normalizedScores.longevityYears,
+                        resilienceScore: normalizedScores.resilienceScore
+                    });
+
+                    window.dispatchEvent(new CustomEvent('predictionHistoryUpdated'));
+                } catch (err) {
+                    console.warn('Failed saving prediction history to Firestore', err);
+                }
                 setStep(4); // Move to the Final Report step
             }
         } catch (error) {
@@ -273,39 +355,59 @@ const Predictor = () => {
         }
     };
 
-    const downloadReport = () => {
+    const downloadReport = async (e) => {
         if (!result) return;
 
-        const reportContent = `
-=============================================
-         LIFE BALANCE INTELLIGENCE REPORT      
-=============================================
+        let btn = e?.currentTarget;
+        let originalText = btn?.innerHTML;
 
-[ BIO-LONGEVITY ]
-Projected Years: ${result.longevity_prediction}
-Insight: ${getRawAdvice('longevity', result.longevity_prediction)}
+        try {
+            e?.preventDefault();
+            // Show loading state
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span className="flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Generating PDF...</span>';
+            }
 
-[ CLINICAL HEALTH STATE ]
-Diagnostic: ${result.health_condition}
-Insight: ${getRawAdvice('health', result.health_condition)}
+            // Call backend PDF generation endpoint
+            const response = await fetch('http://127.0.0.1:5000/api/generate_pdf_report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    longevity_prediction: result.longevity_prediction,
+                    health_condition: result.health_condition,
+                    financial_status: result.financial_status
+                })
+            });
 
-[ FINANCIAL STABILITY ]
-Resilience Score: ${result.financial_status}
-Insight: ${getRawAdvice('finance', result.financial_status)}
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || `PDF generation failed with status ${response.status}`);
+            }
 
-=============================================
-Generated by LifeBalance Intelligence System
-=============================================`;
+            // Create and download PDF
+            const pdfBlob = await response.blob();
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `LifeBalance_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
-        const blob = new Blob([reportContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'LifeBalance_Report.txt';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+            // Restore button text
+        } catch (error) {
+            console.error('PDF download error:', error);
+            alert('Failed to generate PDF. Please ensure the backend is running.');
+        } finally {
+            if (btn && originalText) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
     };
 
     return (
@@ -386,7 +488,31 @@ Generated by LifeBalance Intelligence System
                                     </button>
                                 </div>
                             </div>
-                            <InputField label="Occupation Type (ID)" name="occupation_type" value={formData.occupation_type} inputRef={occupationTypeRef} onKeyDown={(e) => handleKeyDown(e, 5, step1Refs, () => setStep(2))} onChange={handleInputChange} onClear={handleClearField} />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] text-slate-300 font-bold uppercase tracking-widest ml-0.5 flex items-center gap-2.5">
+                                    <Zap size={14} className="text-blue-400" /> Occupation Type
+                                </label>
+                                <div className="relative group">
+                                    <select ref={occupationTypeRef} name="occupation_type" value={formData.occupation_type} onChange={handleInputChange} onKeyDown={(e) => handleKeyDown(e, 5, step1Refs, () => setStep(2))} className="w-full px-4 py-3 pr-12 bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-600 rounded-lg text-white text-sm outline-none transition-all duration-200 hover:border-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 shadow-sm hover:shadow-md focus:shadow-lg">
+                                        <option value="" className="bg-slate-900">Select occupation</option>
+                                        {occupations.map((occ) => (
+                                            <option key={occ.id} value={occ.id} className="bg-slate-900">
+                                                {occ.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => handleClearField('occupation_type', occupationTypeRef)}
+                                        disabled={formData.occupation_type === ''}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md border border-slate-500/80 text-slate-200 hover:bg-slate-700 opacity-0 pointer-events-none transition-opacity group-focus-within:opacity-100 group-focus-within:pointer-events-auto disabled:opacity-40 disabled:cursor-not-allowed"
+                                        aria-label="Clear Occupation Type"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <button onClick={() => setStep(2)} className="mt-12 w-full md:w-max px-12 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ml-auto shadow-lg shadow-blue-600/20">
                             Analyze Health <ChevronRight size={16} />
@@ -406,16 +532,60 @@ Generated by LifeBalance Intelligence System
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                             <InputField label="Age" name="age" value={formData.age} icon={User} inputRef={ageRef} onKeyDown={(e) => handleKeyDown(e, 0, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
-                            <InputField label="Stress Level (1-10)" name="stress_level_health" value={formData.stress_level_health} inputRef={stressRef} onKeyDown={(e) => handleKeyDown(e, 1, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
-                            <InputField label="Sleep Quality (1-10)" name="quality_of_sleep" value={formData.quality_of_sleep} inputRef={sleepQualityRef} onKeyDown={(e) => handleKeyDown(e, 2, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
+                            <InputField label="Stress Level (1-10)" name="stress_level_health" type="number" min="1" max="10" step="1" value={formData.stress_level_health} inputRef={stressRef} onKeyDown={(e) => handleKeyDown(e, 1, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
+                            <InputField label="Sleep Quality (1-10)" name="quality_of_sleep" type="number" min="1" max="10" step="1" value={formData.quality_of_sleep} inputRef={sleepQualityRef} onKeyDown={(e) => handleKeyDown(e, 2, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
                             <InputField label="Daily Steps" name="daily_steps" value={formData.daily_steps} inputRef={dailyStepsRef} onKeyDown={(e) => handleKeyDown(e, 3, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
                             <InputField label="Heart Rate (BPM)" name="heart_rate" value={formData.heart_rate} inputRef={heartRateRef} onKeyDown={(e) => handleKeyDown(e, 4, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
                             <InputField label="Systolic BP" name="systolic_bp" value={formData.systolic_bp} inputRef={systolicRef} onKeyDown={(e) => handleKeyDown(e, 5, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
                             <InputField label="Diastolic BP" name="diastolic_bp" value={formData.diastolic_bp} inputRef={diastolicRef} onKeyDown={(e) => handleKeyDown(e, 6, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
-                            <InputField label="BMI (0,1,2)" name="bmi_category" value={formData.bmi_category} inputRef={bmiRef} onKeyDown={(e) => handleKeyDown(e, 7, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest ml-1">BMI Category</label>
+                                <div className="relative group">
+                                    <select ref={bmiRef} name="bmi_category" value={formData.bmi_category} onChange={handleInputChange} onKeyDown={(e) => handleKeyDown(e, 7, step2Refs)} className="w-full px-4 py-3 pr-12 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm outline-none transition-all duration-200 hover:border-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 shadow-sm hover:shadow-md focus:shadow-lg">
+                                        <option value="" className="bg-slate-900">-- Select BMI Category --</option>
+                                        {bmiCategories.map((bmiOption) => (
+                                            <option key={bmiOption.id} value={bmiOption.id} className="bg-slate-900">
+                                                {bmiOption.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => handleClearField('bmi_category', bmiRef)}
+                                        disabled={formData.bmi_category === ''}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md border border-slate-500/80 text-slate-200 hover:bg-slate-700 opacity-0 pointer-events-none transition-opacity group-focus-within:opacity-100 group-focus-within:pointer-events-auto disabled:opacity-40 disabled:cursor-not-allowed"
+                                        aria-label="Clear BMI Category"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            </div>
                             <InputField label="Physical Activity" name="physical_activity_level" value={formData.physical_activity_level} inputRef={physicalActivityRef} onKeyDown={(e) => handleKeyDown(e, 8, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
                             <InputField label="Sleep Duration" name="sleep_duration" value={formData.sleep_duration} inputRef={sleepDurationRef} onKeyDown={(e) => handleKeyDown(e, 9, step2Refs)} onChange={handleInputChange} onClear={handleClearField} />
-                            <InputField label="Occupation (ID)" name="occupation" value={formData.occupation} inputRef={occupationRef} onKeyDown={(e) => handleKeyDown(e, 10, step2Refs, () => setStep(3))} onChange={handleInputChange} onClear={handleClearField} />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest ml-1">Occupation</label>
+                                <div className="relative group">
+                                    <select ref={occupationRef} name="occupation" value={formData.occupation} onChange={handleInputChange} onKeyDown={(e) => handleKeyDown(e, 10, step2Refs, () => setStep(3))} className="w-full px-4 py-3 pr-12 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm outline-none transition-all duration-200 hover:border-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 shadow-sm hover:shadow-md focus:shadow-lg">
+                                        <option value="" className="bg-slate-900">-- Select Occupation --</option>
+                                        {healthOccupations.map((occupationOption) => (
+                                            <option key={occupationOption.id} value={occupationOption.id} className="bg-slate-900">
+                                                {occupationOption.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => handleClearField('occupation', occupationRef)}
+                                        disabled={formData.occupation === ''}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md border border-slate-500/80 text-slate-200 hover:bg-slate-700 opacity-0 pointer-events-none transition-opacity group-focus-within:opacity-100 group-focus-within:pointer-events-auto disabled:opacity-40 disabled:cursor-not-allowed"
+                                        aria-label="Clear Occupation"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div className="flex gap-4 mt-12">
                             <button onClick={() => setStep(1)} className="px-8 py-4 bg-slate-800 text-slate-300 rounded-2xl font-bold uppercase text-xs flex items-center gap-2 hover:bg-slate-700 transition-all"><ChevronLeft size={16} /> Back</button>
@@ -574,8 +744,12 @@ Generated by LifeBalance Intelligence System
                         </div>
 
                         <div className="mt-12 flex flex-col md:flex-row items-center justify-center gap-4">
-                            <button onClick={downloadReport} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-slate-800 text-white rounded-2xl font-bold uppercase text-xs hover:bg-slate-700 border border-slate-700 transition-all shadow-lg hover:shadow-xl">
-                                <Download size={16} /> Download Report
+                            <button type="button" onClick={downloadReport} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-slate-800 text-white rounded-2xl font-bold uppercase text-xs hover:bg-slate-700 border border-slate-700 transition-all shadow-lg hover:shadow-xl">
+                                <Download size={16} /> Download PDF Report
+                            </button>
+
+                            <button onClick={() => window.dispatchEvent(new CustomEvent('openGlobalChart'))} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold uppercase text-xs border border-blue-500 transition-all shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30">
+                                <LineChartIcon size={16} /> View Chart
                             </button>
 
                             <button onClick={() => {
@@ -619,6 +793,7 @@ Generated by LifeBalance Intelligence System
                 )}
             </div>
         </div>
+
     );
 };
 

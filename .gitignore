@@ -67,3 +67,4 @@ lerna-debug.log*
 # Temporary files
 *.tmp
 .cache/
+backend/serviceAccountKey.json

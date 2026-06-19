@@ -1,32 +1,36 @@
 # LifeBalance Monitoring System
 
-A full-stack machine learning application that evaluates **personal growth**, **sleep/health condition**, and **financial stability** from user inputs, then generates a consolidated intelligence report.
+LifeBalance is a full-stack machine learning application that combines lifestyle, sleep/health, and financial inputs into a single wellbeing assessment. The project pairs a React frontend with a Flask backend that runs the trained models and generates a downloadable PDF report.
 
 ## Overview
 
-LifeBalance combines a React frontend and a Flask backend with pre-trained ML models to produce three predictions in a single workflow:
+Users complete a guided dashboard flow and submit 28 inputs across three areas:
 
-1. **Longevity / growth outlook**
-2. **Sleep-related health condition**
-3. **Financial stability score**
+- Lifestyle and longevity factors
+- Sleep and health indicators
+- Financial stability inputs
 
-The UI guides users through a multi-step form and displays a final analysis dashboard.
+The system returns three outputs in one response:
+
+- Estimated longevity
+- Sleep disorder classification
+- Financial stability score
 
 ## Key Features
 
-- Multi-step prediction flow (lifestyle, health, and finance)
-- Single backend endpoint for combined inference (`/api/predict_all`)
-- Local model loading from serialized artifacts (`.pkl`)
-- Protected dashboard route (basic localStorage-based session check)
-- Downloadable report from the frontend
+- Multi-step prediction flow in the frontend
+- Combined inference endpoint for all three model outputs
+- PDF report generation from the final prediction summary
+- Protected dashboard route for the prediction experience
+- Clean chart-based result presentation in the UI
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, Vite, React Router, Axios, Tailwind CSS, Lucide Icons |
-| Backend | Flask, Flask-CORS, Pandas, NumPy, Joblib/Pickle |
-| ML Artifacts | scikit-learn serialized models (`.pkl`) |
+| Frontend | React, Vite, React Router, Axios, Framer Motion, Recharts, Tailwind CSS |
+| Backend | Flask, Flask-CORS, Pandas, NumPy, scikit-learn, Joblib, ReportLab, python-dotenv |
+| Models | Serialized `.pkl` artifacts loaded from `backend/models` |
 
 ## Project Structure
 
@@ -34,107 +38,72 @@ The UI guides users through a multi-step form and displays a final analysis dash
 Final-Project/
 ├── backend/
 │   ├── app.py
+│   ├── pdf_generator.py
 │   ├── requirements.txt
-│   └── models/
-│       ├── growth_model.pkl
-│       ├── sleep_disorder_model.pkl
-│       ├── finance_model.pkl
-│       ├── finance_columns.pkl
-│       └── encoders.pkl
-└── frontend/
-    ├── src/
-    │   ├── pages/
-    │   ├── components/
-    │   └── App.jsx
-    ├── package.json
-    └── vite.config.js
+│   ├── models/
+│   └── Data/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
 ```
 
-## Getting Started
+## Requirements
 
-### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- npm
 
-- **Python 3.10+**
-- **Node.js 18+** and npm
+## Local Setup
 
-### 1. Run Backend (Flask API)
+### 1. Backend
 
-```bash
+From the project root:
+
+```powershell
 cd backend
 python -m venv .venv
-```
-
-Activate the virtual environment:
-
-- Windows PowerShell:
-  ```bash
-  .\.venv\Scripts\Activate.ps1
-  ```
-- Windows CMD:
-  ```bash
-  .\.venv\Scripts\activate.bat
-  ```
-
-Install dependencies and start server:
-
-```bash
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python app.py
 ```
 
-Backend default URL: **http://127.0.0.1:5000**
+The API runs at `http://127.0.0.1:5000`.
 
-### 2. Run Frontend (React + Vite)
+### 2. Frontend
 
-```bash
+In a separate terminal:
+
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend default URL: **http://localhost:5173**
+The app runs at `http://localhost:5173`.
+
+## Environment Variables
+
+The backend supports an optional `GEMINI_API_KEY` in a `.env` file. If the key is not provided, the PDF generator uses its fallback report header.
+
+Example:
+
+```env
+GEMINI_API_KEY=your_key_here
+```
 
 ## API Reference
 
 ### `POST /api/predict_all`
 
-Returns combined prediction outputs for growth, health, and finance.
+Runs the three ML models and returns the combined prediction payload.
 
-#### Example Request Body
-
-```json
-{
-  "gender": 1,
-  "occupation_type": 3,
-  "avg_work_hours": 8,
-  "avg_rest_hours": 2,
-  "avg_sleep_hours": 7,
-  "avg_exercise_hours": 1,
-  "age": 25,
-  "occupation": 0,
-  "sleep_duration": 7,
-  "quality_of_sleep": 5,
-  "physical_activity_level": 30,
-  "stress_level_health": 5,
-  "bmi_category": 1,
-  "heart_rate": 72,
-  "daily_steps": 5000,
-  "systolic_bp": 120,
-  "diastolic_bp": 80,
-  "years_employed": 1,
-  "annual_income": 50000,
-  "credit_score": 650,
-  "savings_assets": 10000,
-  "current_debt": 0,
-  "Equity_Market": 0,
-  "Fixed_Deposits": 0,
-  "occupation_status": "Student",
-  "investment_avenues": "No",
-  "stock_market": "No"
-}
-```
-
-#### Example Success Response
+Example response:
 
 ```json
 {
@@ -147,26 +116,30 @@ Returns combined prediction outputs for growth, health, and finance.
 }
 ```
 
+### `POST /api/generate_pdf_report`
+
+Generates and downloads a PDF report using the latest prediction results.
+
 ## Frontend Routes
 
-| Route | Description |
+| Route | Purpose |
 |---|---|
 | `/` | Landing page |
-| `/login` | Sign-in page |
-| `/signup` | Sign-up page |
-| `/dashboard` | Protected predictor/report page |
+| `/login` | Login page |
+| `/signup` | Registration page |
+| `/dashboard` | Protected prediction dashboard |
 
-## Available Frontend Scripts
+## Frontend Scripts
 
 ```bash
-npm run dev      # Start local dev server
-npm run build    # Production build
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
+npm run dev
+npm run build
+npm run preview
+npm run lint
 ```
 
 ## Notes
 
-- Model files must exist in `backend/models` before starting the API.
-- Backend inference uses strict feature ordering and column names expected by trained models.
-- Dashboard route protection is client-side (`localStorage`) and intended for basic app flow, not production-grade authentication.
+- Keep the trained model files in `backend/models` before starting the API.
+- The prediction inputs must match the feature order expected by the trained models.
+- The dashboard route is intentionally lightweight and intended for local or demo use.
