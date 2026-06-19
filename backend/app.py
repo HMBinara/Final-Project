@@ -224,7 +224,7 @@ try:
     financial_model = load_model(MODELS_DIR / "finance_model.pkl")
     fin_columns = load_model(MODELS_DIR / "finance_columns.pkl")
     try:
-        health_encoder_file = load_model(MODELS_DIR / "health_encoder.pkl")
+        health_encoder_file = load_model(MODELS_DIR / "encoders.pkl")
         if health_encoder_file:
             health_encoder = health_encoder_file
     except Exception:
